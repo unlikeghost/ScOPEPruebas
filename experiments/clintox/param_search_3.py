@@ -18,7 +18,7 @@ random.seed(seed)
 
 STUDY_NAME: str = 'Clintox'
 TEST_SAMPLES:list = 3
-TRIALS: int = 1500
+TRIALS: int = 1_500
 CVFOLDS: int = 10
 
 
@@ -139,7 +139,6 @@ for x_test_i, y_test_i, test_kw_samples_i in test_generator.generate(num_samples
         list_kw_samples=test_kw_samples_i
     )
     
-    
     prediction = pred['probas']
     
     sorted_dict = OrderedDict(sorted(prediction.items()))
@@ -148,7 +147,7 @@ for x_test_i, y_test_i, test_kw_samples_i in test_generator.generate(num_samples
     pred_key = max(sorted_dict, key=sorted_dict.get) 
     
     
-    predicted_class = int(pred_key.replace("sample_", ""))
+    predicted_class = int(pred_key)
     
     
     all_y_predicted.append(
