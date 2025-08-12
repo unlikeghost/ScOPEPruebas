@@ -16,14 +16,13 @@ class PredictorRegistry:
         cls._defaults[name] = defaults or {}
     
     @classmethod
-    def create(cls, name: str, get_probas: bool = True, epsilon: float = 1e-12, use_prototypes: bool = False, **kwargs) -> _BasePredictor:
+    def create(cls, name: str, epsilon: float = 1e-12, use_prototypes: bool = False, **kwargs) -> _BasePredictor:
         if name not in cls._predictors:
             available = list(cls._predictors.keys())
             raise ValueError(f"Model '{name}' not found. Available: {available}")
         
         config = cls._defaults[name].copy()
         
-        config['get_probas'] = get_probas
         config['epsilon'] = epsilon
         config['use_prototypes'] = use_prototypes
         

@@ -6,16 +6,10 @@ from scope.predictor.base import _BasePredictor
 
 class ScOPEOT(_BasePredictor):
 
-    def __init__(self,
-                 use_prototypes: bool = False,
-                 matching_metric: str = None, 
-                 get_probas: bool = False, 
-                 epsilon: float = 1e-12) -> None:
+    def __init__(self, matching_metric: str = None, **kwargs) -> None:
         
         super().__init__(
-            get_probas=get_probas, 
-            epsilon=epsilon,
-            use_prototypes=use_prototypes
+            **kwargs
         )
         
         self.supported_matching_metrics = {

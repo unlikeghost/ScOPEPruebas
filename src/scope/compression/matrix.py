@@ -238,7 +238,7 @@ class CompressionMatrixFactory(_BaseMatrixFactory):
                 all_sigmas.append(sigma)
         
         if get_sigma:
-            results["sigma"] = np.array(all_sigmas)
+            results["sigma"] = np.mean(all_sigmas)
             
         return results
 

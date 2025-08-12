@@ -5,15 +5,10 @@ from scope.predictor.base import _BasePredictor
 class ScOPEPD(_BasePredictor):
 
     def __init__(self, 
-                 distance_metric: str = "cosine",
-                 use_prototypes: bool = False,
-                 get_probas: bool = False, 
-                 epsilon: float = 1e-12) -> None:
+                 distance_metric: str = "cosine", **kwargs) -> None:
         
         super().__init__(
-            get_probas=get_probas, 
-            epsilon=epsilon,
-            use_prototypes=use_prototypes
+            **kwargs
         )
 
         self.supported_distance_metrics = {
