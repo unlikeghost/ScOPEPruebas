@@ -30,6 +30,10 @@ class ParameterSpace:
     model_types: List[str] = field(
         default_factory=lambda: ["ot", "pd"]
     )
+    
+    ensemble_strategy: List[str] = field(
+        default_factory= lambda: ['max', 'median', 'hard', 'borda', 'soft']
+    )
 
     # Enteros
     compression_levels: List[int] = field(

@@ -89,7 +89,7 @@ class ScOPEOptimizer(ABC):
         print("Parameter space includes:")
         print("=" * 60)
         
-        # Basic parameters - Fixed property access
+        # Basic parameters
         print("BASIC PARAMETERS:")
         print(f"  • Compressor combinations ({len(self.parameter_space.compressor_names_combinations)}): {self.parameter_space.compressor_names_combinations}")
         print(f"  • Compression metric combinations ({len(self.parameter_space.compression_metric_names_combinations)}): {self.parameter_space.compression_metric_names_combinations}")
@@ -101,6 +101,9 @@ class ScOPEOptimizer(ABC):
         print(f"  • Use prototypes: {self.parameter_space.use_prototypes_options}")
         print(f"  • Model types: {self.parameter_space.model_types}")
         
+        print("\nENSEMBLE PARAMETERS:")
+        print(f"  • Ensemble strategies ({len(self.parameter_space.ensemble_strategy)}): {self.parameter_space.ensemble_strategy}")
+        
         print("\nMODEL-SPECIFIC PARAMETERS:")
         
         # ScOPE-OT parameters
@@ -111,7 +114,7 @@ class ScOPEOptimizer(ABC):
         print("  ScOPE-PD:")
         print(f"    • Distance metrics ({len(self.parameter_space.pd_distance_metrics)}): {self.parameter_space.pd_distance_metrics}")
         
-        # Calculate total combinations - Fixed property access
+        # Calculate total combinations
         total_compressor_combos = len(self.parameter_space.compressor_names_combinations)
         total_metric_combos = len(self.parameter_space.compression_metric_names_combinations)
         total_basic = (total_compressor_combos * 
@@ -126,7 +129,8 @@ class ScOPEOptimizer(ABC):
         
         total_ot = len(self.parameter_space.ot_matching_metrics)
         total_pd = len(self.parameter_space.pd_distance_metrics)
-        total_combinations = total_basic * (total_ot + total_pd)
+        total_ensemble = len(self.parameter_space.ensemble_strategy)
+        total_combinations = total_basic * (total_ot + total_pd) * total_ensemble
         
         print(f"\nTOTAL POSSIBLE COMBINATIONS: ~{total_combinations:,}")
         print("=" * 60)
@@ -152,9 +156,13 @@ class ScOPEOptimizer(ABC):
             'concat_value': params['string_separator'],
             'model_type': params['model_type'],
             'use_symmetric_matrix': params['use_symmetric_matrix'],
-            'get_probas': True,
             'use_prototypes': params['use_prototypes'],
         }
+        
+        # Add ensemble strategy if it's an ensemble (multiple compressors or metrics)
+        is_ensemble = len(compressor_names) > 1 or len(compression_metric_names) > 1
+        if is_ensemble:
+            base_params['ensemble_strategy'] = params.get('ensemble_strategy', 'max')
         
         # Model-specific parameters - only for the correct type
         if params['model_type'] == "ot":
@@ -212,7 +220,6 @@ class ScOPEOptimizer(ABC):
     
     def suggest_compressor_and_metric_params(self, trial) -> Dict[str, Any]:
         """Suggest compressor and metric combinations."""
-        # Fixed property access - using the actual properties from ParameterSpace
         compressor_choices = [','.join(combo) for combo in self.parameter_space.compressor_names_combinations]
         metric_choices = [','.join(combo) for combo in self.parameter_space.compression_metric_names_combinations]
         
@@ -223,6 +230,23 @@ class ScOPEOptimizer(ABC):
             'compressor_names': compressor_string,
             'compression_metric_names': metric_string
         }
+    
+    def suggest_ensemble_params(self, trial, compressor_names: str, compression_metric_names: str) -> Dict[str, Any]:
+        """Suggest ensemble parameters only if it's actually an ensemble."""
+        params = {}
+        
+        # Check if this is an ensemble configuration
+        compressor_list = compressor_names.split(',')
+        metric_list = compression_metric_names.split(',')
+        is_ensemble = len(compressor_list) > 1 or len(metric_list) > 1
+        
+        if is_ensemble:
+            params['ensemble_strategy'] = trial.suggest_categorical(
+                'ensemble_strategy',
+                self.parameter_space.ensemble_strategy
+            )
+        
+        return params
     
     def suggest_model_specific_params(self, trial, model_type: str) -> Dict[str, Any]:
         """Suggest model-specific parameters ONLY for the selected model type."""        
@@ -259,6 +283,13 @@ class ScOPEOptimizer(ABC):
         
         # Compressor and metric combinations
         params.update(self.suggest_compressor_and_metric_params(trial))
+        
+        # Ensemble parameters (only if it's an ensemble)
+        params.update(self.suggest_ensemble_params(
+            trial, 
+            params['compressor_names'], 
+            params['compression_metric_names']
+        ))
         
         # Model-specific parameters
         params.update(self.suggest_model_specific_params(trial, params.get('model_type')))
@@ -425,7 +456,7 @@ class ScOPEOptimizer(ABC):
     def _create_objective_function(self,
                                   X_validation: List[str],
                                   y_validation: List[str], 
-                                  kw_samples_validation: List[Dict[str, Any]]):  # Fixed type annotation
+                                  kw_samples_validation: List[Dict[str, Any]]):
         """Objective function for Optuna."""
         
         def objective(trial):

@@ -47,7 +47,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
     def optimize(self,
                 X_validation: List[str],
                 y_validation: List[str],
-                kw_samples_validation: List[Dict[str, Any]]) -> optuna.Study:  # Fixed type annotation
+                kw_samples_validation: List[Dict[str, Any]]) -> optuna.Study:
         """Run Bayesian optimization"""
         
         print("=== BAYESIAN OPTIMIZATION SCOPE ===\n")
@@ -74,7 +74,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
         self.study = optuna.create_study(
             direction=direction,
             sampler=TPESampler(
-                seed=self.random_seed,  # Re-enabled seed for reproducibility
+                seed=self.random_seed,
                 n_startup_trials=24,
                 n_ei_candidates=24,
                 multivariate=True,
@@ -106,13 +106,23 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
         print("\n=== OPTIMIZATION RESULTS ===")
         print(f"Best score: {self.study.best_value:.4f}")
         
-        # Analyze best model configuration - Fixed property access
+        # Analyze best model configuration
         compressor_names = self.best_params['compressor_names'].split(',')
         compression_metric_names = self.best_params['compression_metric_names'].split(',')
         
-        print(f"Best model type: {self.best_params.get('model_type', 'unknown')}")
-        print(f"Compressors: {compressor_names}")
-        print(f"Compression metrics: {compression_metric_names}")
+        # Determine if it's an ensemble
+        is_ensemble = len(compressor_names) > 1 or len(compression_metric_names) > 1
+        
+        if is_ensemble:
+            ensemble_strategy = self.best_params.get('ensemble_strategy', 'max')
+            print(f"Best model type: Ensemble ({ensemble_strategy} strategy)")
+            print(f"Compressors: {compressor_names}")
+            print(f"Compression metrics: {compression_metric_names}")
+            print(f"Ensemble strategy: {ensemble_strategy}")
+        else:
+            print(f"Best model type: Individual ({self.best_params.get('model_type', 'unknown')})")
+            print(f"Compressor: {compressor_names[0]}")
+            print(f"Compression metric: {compression_metric_names[0]}")
         
         cache_size = self._eval_cache_size_()
         total_trials = len(self.study.trials)
@@ -144,10 +154,37 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
         print(f"Pruned trials: {pruned_trials}")
         print(f"Failed trials: {failed_trials}")
         
-        # Get results dataframe
+        # Ensemble vs Individual analysis
         df_results = self.get_trials_dataframe()
         if not df_results.empty:
             print(f"\nTotal unique parameter combinations evaluated: {len(df_results)}")
+            
+            # Analyze ensemble vs individual
+            ensemble_trials = []
+            individual_trials = []
+            
+            for idx, row in df_results.iterrows():
+                compressor_names = str(row.get('params_compressor_names', '')).split(',')
+                compression_metric_names = str(row.get('params_compression_metric_names', '')).split(',')
+                
+                is_ensemble = len(compressor_names) > 1 or len(compression_metric_names) > 1
+                
+                if is_ensemble:
+                    ensemble_trials.append(row)
+                else:
+                    individual_trials.append(row)
+            
+            print(f"\nEnsemble vs Individual Analysis:")
+            print(f"  Ensemble trials: {len(ensemble_trials)}")
+            print(f"  Individual trials: {len(individual_trials)}")
+            
+            if ensemble_trials:
+                ensemble_df = pd.DataFrame(ensemble_trials)
+                print(f"  Best ensemble score: {ensemble_df['value'].max():.4f}")
+            
+            if individual_trials:
+                individual_df = pd.DataFrame(individual_trials)
+                print(f"  Best individual score: {individual_df['value'].max():.4f}")
         
         # Parameter importance
         try:
@@ -159,12 +196,15 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             basic_params = {}
             ot_params = {}
             pd_params = {}
+            ensemble_params = {}
             
             for param, importance in importances.items():
                 if param.startswith('ot_'):
                     ot_params[param] = importance
                 elif param.startswith('pd_'):
                     pd_params[param] = importance
+                elif param == 'ensemble_strategy':
+                    ensemble_params[param] = importance
                 else:
                     basic_params[param] = importance
             
@@ -172,6 +212,13 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             if basic_params:
                 print("Basic Parameters:")
                 for param, importance in sorted(basic_params.items(), key=lambda x: x[1], reverse=True):
+                    print(f"  {param}: {importance:.6f}")
+                print()
+            
+            # Print ensemble parameters
+            if ensemble_params:
+                print("Ensemble Parameters:")
+                for param, importance in sorted(ensemble_params.items(), key=lambda x: x[1], reverse=True):
                     print(f"  {param}: {importance:.6f}")
                 print()
             
@@ -202,7 +249,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             print("\nTop 5 configurations:")
             columns_to_show = ['value', 'params_compressor_names', 'params_compression_metric_names', 
                               'params_model_type', 'params_use_best_sigma', 'params_use_symmetric_matrix', 
-                              'params_use_prototypes']
+                              'params_use_prototypes', 'params_ensemble_strategy']
             
             # Add model-specific columns if they exist
             model_specific_columns = []
@@ -259,15 +306,23 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             f.write(f"Random seed: {self.random_seed}\n")
             f.write(f"Best score achieved: {self.study.best_value:.6f}\n\n")
             
-            # Best model configuration - Fixed property access
+            # Best model configuration
             compressor_names = self.best_params['compressor_names'].split(',')
             compression_metric_names = self.best_params['compression_metric_names'].split(',')
+            is_ensemble = len(compressor_names) > 1 or len(compression_metric_names) > 1
             
-            f.write(f"Best model type: {self.best_params.get('model_type', 'unknown')}\n")
-            f.write(f"Compressors: {compressor_names}\n")
-            f.write(f"Compression metrics: {compression_metric_names}\n\n")
+            if is_ensemble:
+                ensemble_strategy = self.best_params.get('ensemble_strategy', 'max')
+                f.write(f"Best model type: Ensemble ({ensemble_strategy} strategy)\n")
+                f.write(f"Compressors: {compressor_names}\n")
+                f.write(f"Compression metrics: {compression_metric_names}\n")
+                f.write(f"Ensemble strategy: {ensemble_strategy}\n\n")
+            else:
+                f.write(f"Best model type: Individual ({self.best_params.get('model_type', 'unknown')})\n")
+                f.write(f"Compressor: {compressor_names[0]}\n")
+                f.write(f"Compression metric: {compression_metric_names[0]}\n\n")
             
-            # Parameter space - Fixed property access
+            # Parameter space
             f.write("PARAMETER SPACE:\n")
             f.write("-" * 30 + "\n")
             f.write("BASIC PARAMETERS:\n")
@@ -280,6 +335,9 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             f.write(f"  Use symmetric matrix options: {self.parameter_space.use_symmetric_matrix_options}\n")
             f.write(f"  Use prototypes options: {self.parameter_space.use_prototypes_options}\n")
             f.write(f"  Model types: {self.parameter_space.model_types}\n\n")
+            
+            f.write("ENSEMBLE PARAMETERS:\n")
+            f.write(f"  Ensemble strategies ({len(self.parameter_space.ensemble_strategy)}): {self.parameter_space.ensemble_strategy}\n\n")
             
             f.write("MODEL-SPECIFIC PARAMETERS:\n")
             f.write(f"  ScOPE-OT:\n")
@@ -298,6 +356,37 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             f.write(f"Pruned trials: {pruned_trials}\n")
             f.write(f"Failed trials: {failed_trials}\n")
             f.write(f"Total trials: {len(self.study.trials)}\n\n")
+            
+            # Ensemble vs Individual analysis
+            df_results = self.get_trials_dataframe()
+            if not df_results.empty:
+                ensemble_trials = []
+                individual_trials = []
+                
+                for idx, row in df_results.iterrows():
+                    compressor_names = str(row.get('params_compressor_names', '')).split(',')
+                    compression_metric_names = str(row.get('params_compression_metric_names', '')).split(',')
+                    
+                    is_ensemble = len(compressor_names) > 1 or len(compression_metric_names) > 1
+                    
+                    if is_ensemble:
+                        ensemble_trials.append(row)
+                    else:
+                        individual_trials.append(row)
+                
+                f.write("ENSEMBLE VS INDIVIDUAL ANALYSIS:\n")
+                f.write("-" * 30 + "\n")
+                f.write(f"Ensemble trials: {len(ensemble_trials)}\n")
+                f.write(f"Individual trials: {len(individual_trials)}\n")
+                
+                if ensemble_trials:
+                    ensemble_df = pd.DataFrame(ensemble_trials)
+                    f.write(f"Best ensemble score: {ensemble_df['value'].max():.6f}\n")
+                
+                if individual_trials:
+                    individual_df = pd.DataFrame(individual_trials)
+                    f.write(f"Best individual score: {individual_df['value'].max():.6f}\n")
+                f.write("\n")
             
             # Best parameters
             f.write("BEST CONFIGURATION:\n")
@@ -318,12 +407,15 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
                 basic_params = {}
                 ot_params = {}
                 pd_params = {}
+                ensemble_params = {}
                 
                 for param, importance in importances.items():
                     if param.startswith('ot_'):
                         ot_params[param] = importance
                     elif param.startswith('pd_'):
                         pd_params[param] = importance
+                    elif param == 'ensemble_strategy':
+                        ensemble_params[param] = importance
                     else:
                         basic_params[param] = importance
                 
@@ -331,6 +423,13 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
                 if basic_params:
                     f.write("Basic Parameters:\n")
                     for param, importance in sorted(basic_params.items(), key=lambda x: x[1], reverse=True):
+                        f.write(f"  {param}: {importance:.6f}\n")
+                    f.write("\n")
+                
+                # Write ensemble parameters
+                if ensemble_params:
+                    f.write("Ensemble Parameters:\n")
+                    for param, importance in sorted(ensemble_params.items(), key=lambda x: x[1], reverse=True):
                         f.write(f"  {param}: {importance:.6f}\n")
                     f.write("\n")
                 
@@ -358,7 +457,6 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
                 f.write(f"PARAMETER IMPORTANCE: Could not calculate ({str(e)})\n\n")
             
             # Top 10 configurations
-            df_results = self.get_trials_dataframe()
             if not df_results.empty:
                 top_10 = df_results.nlargest(10, 'value')
                 f.write("TOP 10 CONFIGURATIONS:\n")
@@ -411,7 +509,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
         important_cols = ['number', 'value', 'state']
         basic_param_cols = ['compressor_names', 'compression_metric_names', 'compression_level', 
                            'min_size_threshold', 'string_separator', 'use_best_sigma', 
-                           'model_type', 'use_symmetric_matrix', 'use_prototypes']
+                           'model_type', 'use_symmetric_matrix', 'use_prototypes', 'ensemble_strategy']
         
         model_specific_cols = []
         for col in cleaned_df.columns:
