@@ -18,7 +18,7 @@ random.seed(seed)
 
 STUDY_NAME: str = 'Clintox'
 TEST_SAMPLES:list = 3
-TRIALS: int = 100
+TRIALS: int = 1500
 CVFOLDS: int = 10
 
 
