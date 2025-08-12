@@ -73,9 +73,9 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             direction=direction,
             sampler=TPESampler(
                 seed=self.random_seed,
-                n_startup_trials=24,
-                n_ei_candidates=24,
-                multivariate=True,
+                n_startup_trials=50,
+                n_ei_candidates=100,
+                multivariate=False,
                 group=True,
                 constant_liar=True
             ),
