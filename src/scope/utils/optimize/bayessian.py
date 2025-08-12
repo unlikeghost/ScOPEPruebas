@@ -76,7 +76,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
                 n_startup_trials=50,
                 n_ei_candidates=100,
                 multivariate=False,
-                group=True,
+                group=False,
                 constant_liar=True
             ),
             # pruner=MedianPruner(
