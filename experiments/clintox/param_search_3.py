@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 import deepchem as dc
 
-from scope.utils import ScOPEOptimizerBayesian
+from scope.utils import ScOPEOptimizerAuto
 from scope.utils.report_generation import make_report
 from scope.utils.sample_generation import SampleGenerator
 
@@ -95,7 +95,7 @@ search_generator = SampleGenerator(
     seed=seed,
 )
 
-optimizer = ScOPEOptimizerBayesian(
+optimizer = ScOPEOptimizerAuto(
     free_cpu=0,
     n_trials=TRIALS,
     random_seed=seed,
