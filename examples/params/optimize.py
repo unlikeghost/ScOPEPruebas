@@ -1,4 +1,3 @@
-import numpy as np
 from scope.utils import ScOPEOptimizerBayesian
 
 x_validation = [
@@ -21,17 +20,17 @@ y_validation = [0]*12 + [1]*12
 
 kw_samples_validation = [
     {
-        "0": ["toxic harmful dangerous poison lethal", "mercury lead arsenic cyanide"], 
-        "1": ["safe harmless beneficial healthy natural", "water vitamin protein calcium"]
+        "sample_1": ["toxic harmful dangerous poison lethal", "mercury lead arsenic cyanide"], 
+        "sample_2": ["safe harmless beneficial healthy natural", "water vitamin protein calcium"]
     }
     for _ in range(24)
 ]
 
+
 optimizer = ScOPEOptimizerBayesian(
     random_seed=42,
     n_trials=100,
-    timeout=10,
-    target_metric='accuracy',
+    target_metric='auc_roc',
     study_name="test_optimization"
 )
 
@@ -40,18 +39,3 @@ study = optimizer.optimize(x_validation, y_validation, kw_samples_validation)
 best_model = optimizer.get_best_model()
 
 optimizer.save_complete_analysis(top_n=100)
-
-
-for index, x in enumerate(x_validation):
-    
-    y_esp = y_validation[index]
-    pred = best_model(
-        x,
-        list_kw_samples=kw_samples_validation[0]
-    )
-    
-    prediction = pred['probas']
-
-    prediction_index = np.argmax(list(prediction.values()))
-
-    print(prediction_index == y_esp)

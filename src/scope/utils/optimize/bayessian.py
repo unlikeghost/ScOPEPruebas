@@ -24,7 +24,6 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
                  study_name: str = "scope_optimization",
                  output_path: str = "./results",
                  n_trials: int = 50,
-                 timeout: int = 1800,
                  target_metric: Union[str, Dict[str, float]] = 'auc_roc',
                  use_cache: bool = True
                  ):
@@ -37,7 +36,6 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             study_name=study_name,
             output_path=output_path,
             n_trials=n_trials,
-            timeout=timeout,
             target_metric=target_metric,
             use_cache=use_cache
         )
@@ -53,7 +51,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
         print("=== BAYESIAN OPTIMIZATION SCOPE ===\n")
         print(f"Validation data: {len(X_validation)} samples")
         print(f"Classes: {sorted(set(y_validation))}")
-        print(f"Trials: {self.n_trials}, Timeout: {self.timeout}s")
+        print(f"Trials: {self.n_trials}")
         print(f"CV Folds: {self.cv_folds}\n")
         
         self.validate_data(y_validation)
@@ -78,14 +76,15 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
                 n_startup_trials=24,
                 n_ei_candidates=24,
                 multivariate=True,
-                group=True
+                group=True,
+                constant_liar=True
             ),
-            pruner=MedianPruner(
-                n_startup_trials=5,
-                n_warmup_steps=1
-            ),
+            # pruner=MedianPruner(
+            #     n_startup_trials=5,
+            #     n_warmup_steps=1
+            # ),
             study_name=f"{self.study_name}_{self.study_date}",
-            storage=f"sqlite:///{self.output_path}/optuna_{self.study_name}.db",
+            storage=f"sqlite:///{self.output_path}/optuna_{self.study_name}.sqlite3",
             load_if_exists=True
         )
         
@@ -94,7 +93,6 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
         self.study.optimize(
             objective_func,
             n_trials=self.n_trials,
-            timeout=self.timeout,
             n_jobs=self.n_jobs
         )
         
@@ -115,10 +113,13 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
         
         if is_ensemble:
             ensemble_strategy = self.best_params.get('ensemble_strategy', 'max')
+            aggregation_strategy = self.best_params.get('agregation_strategy', None)
             print(f"Best model type: Ensemble ({ensemble_strategy} strategy)")
             print(f"Compressors: {compressor_names}")
             print(f"Compression metrics: {compression_metric_names}")
             print(f"Ensemble strategy: {ensemble_strategy}")
+            if aggregation_strategy is not None:
+                print(f"Aggregation strategy: {aggregation_strategy}")
         else:
             print(f"Best model type: Individual ({self.best_params.get('model_type', 'unknown')})")
             print(f"Compressor: {compressor_names[0]}")
@@ -203,7 +204,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
                     ot_params[param] = importance
                 elif param.startswith('pd_'):
                     pd_params[param] = importance
-                elif param == 'ensemble_strategy':
+                elif param in ['ensemble_strategy', 'agregation_strategy']:
                     ensemble_params[param] = importance
                 else:
                     basic_params[param] = importance
@@ -249,7 +250,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             print("\nTop 5 configurations:")
             columns_to_show = ['value', 'params_compressor_names', 'params_compression_metric_names', 
                               'params_model_type', 'params_use_best_sigma', 'params_use_symmetric_matrix', 
-                              'params_use_prototypes', 'params_ensemble_strategy']
+                              'params_ensemble_strategy', 'params_agregation_strategy']
             
             # Add model-specific columns if they exist
             model_specific_columns = []
@@ -301,7 +302,6 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             
             f.write(f"Optimization direction: {self.get_optimization_direction()}\n")
             f.write(f"Number of trials: {self.n_trials}\n")
-            f.write(f"Timeout: {self.timeout} seconds\n")
             f.write(f"CV folds: {self.cv_folds}\n")
             f.write(f"Random seed: {self.random_seed}\n")
             f.write(f"Best score achieved: {self.study.best_value:.6f}\n\n")
@@ -313,10 +313,14 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             
             if is_ensemble:
                 ensemble_strategy = self.best_params.get('ensemble_strategy', 'max')
+                aggregation_strategy = self.best_params.get('agregation_strategy', None)
                 f.write(f"Best model type: Ensemble ({ensemble_strategy} strategy)\n")
                 f.write(f"Compressors: {compressor_names}\n")
                 f.write(f"Compression metrics: {compression_metric_names}\n")
-                f.write(f"Ensemble strategy: {ensemble_strategy}\n\n")
+                f.write(f"Ensemble strategy: {ensemble_strategy}\n")
+                if aggregation_strategy is not None:
+                    f.write(f"Aggregation strategy: {aggregation_strategy}\n")
+                f.write("\n")
             else:
                 f.write(f"Best model type: Individual ({self.best_params.get('model_type', 'unknown')})\n")
                 f.write(f"Compressor: {compressor_names[0]}\n")
@@ -330,11 +334,11 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             f.write(f"  Metric combinations ({len(self.parameter_space.compression_metric_names_combinations)}): {self.parameter_space.compression_metric_names_combinations}\n")
             f.write(f"  Compression levels ({len(self.parameter_space.compression_levels)}): {self.parameter_space.compression_levels}\n")
             f.write(f"  Min size thresholds ({len(self.parameter_space.min_size_thresholds)}): {self.parameter_space.min_size_thresholds}\n")
-            f.write(f"  String separators ({len(self.parameter_space.string_separators)}): {self.parameter_space.string_separators}\n")
+            f.write(f"  Concat values ({len(self.parameter_space.concat_value)}): {self.parameter_space.concat_value}\n")
             f.write(f"  Use best sigma options: {self.parameter_space.use_best_sigma_options}\n")
             f.write(f"  Use symmetric matrix options: {self.parameter_space.use_symmetric_matrix_options}\n")
-            f.write(f"  Use prototypes options: {self.parameter_space.use_prototypes_options}\n")
-            f.write(f"  Model types: {self.parameter_space.model_types}\n\n")
+            f.write(f"  Model types: {self.parameter_space.model_types}\n")
+            f.write(f"  Aggregation strategies ({len(self.parameter_space.agregation_strategy)}): {self.parameter_space.agregation_strategy}\n\n")
             
             f.write("ENSEMBLE PARAMETERS:\n")
             f.write(f"  Ensemble strategies ({len(self.parameter_space.ensemble_strategy)}): {self.parameter_space.ensemble_strategy}\n\n")
@@ -392,7 +396,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
             f.write("BEST CONFIGURATION:\n")
             f.write("-" * 30 + "\n")
             for param, value in self.best_params.items():
-                if param == 'string_separator':
+                if param == 'concat_value':  # Updated from string_separator
                     value = repr(value)
                 f.write(f"{param}: {value}\n")
             f.write("\n")
@@ -414,7 +418,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
                         ot_params[param] = importance
                     elif param.startswith('pd_'):
                         pd_params[param] = importance
-                    elif param == 'ensemble_strategy':
+                    elif param in ['ensemble_strategy', 'agregation_strategy']:
                         ensemble_params[param] = importance
                     else:
                         basic_params[param] = importance
@@ -471,7 +475,7 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
                     for param_col in param_cols:
                         param_name = param_col.replace('params_', '')
                         param_value = row[param_col]
-                        if param_name == 'string_separator':
+                        if param_name == 'concat_value':  # Updated from string_separator
                             param_value = repr(param_value)
                         elif pd.isna(param_value):
                             param_value = 'None'
@@ -508,8 +512,9 @@ class ScOPEOptimizerBayesian(ScOPEOptimizer):
         
         important_cols = ['number', 'value', 'state']
         basic_param_cols = ['compressor_names', 'compression_metric_names', 'compression_level', 
-                           'min_size_threshold', 'string_separator', 'use_best_sigma', 
-                           'model_type', 'use_symmetric_matrix', 'use_prototypes', 'ensemble_strategy']
+                           'min_size_threshold', 'concat_value', 'use_best_sigma', 
+                           'model_type', 'use_symmetric_matrix', 
+                           'ensemble_strategy', 'agregation_strategy']
         
         model_specific_cols = []
         for col in cleaned_df.columns:

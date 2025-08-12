@@ -27,7 +27,6 @@ class ScOPEOptimizer(ABC):
                  study_name: str = "scope_optimization",
                  output_path: str = "./results",
                  n_trials: int = 50,
-                 timeout: int = 1800,
                  target_metric: Union[str, Dict[str, float]] = 'auc_roc',
                  use_cache: bool = True
                  ):
@@ -47,7 +46,6 @@ class ScOPEOptimizer(ABC):
         self.best_model = None
         
         self.n_trials = n_trials
-        self.timeout = timeout
         
         if isinstance(target_metric, str):
             self.target_metric_name = target_metric
@@ -95,11 +93,11 @@ class ScOPEOptimizer(ABC):
         print(f"  • Compression metric combinations ({len(self.parameter_space.compression_metric_names_combinations)}): {self.parameter_space.compression_metric_names_combinations}")
         print(f"  • Compression levels ({len(self.parameter_space.compression_levels)}): {self.parameter_space.compression_levels}") 
         print(f"  • Min size thresholds ({len(self.parameter_space.min_size_thresholds)}): {self.parameter_space.min_size_thresholds}")
-        print(f"  • String separators ({len(self.parameter_space.string_separators)}): {[repr(s) for s in self.parameter_space.string_separators]}")
+        print(f"  • Concat values ({len(self.parameter_space.concat_value)}): {[repr(s) for s in self.parameter_space.concat_value]}")
         print(f"  • Use best sigma: {self.parameter_space.use_best_sigma_options}")
         print(f"  • Use symmetric matrix: {self.parameter_space.use_symmetric_matrix_options}")
-        print(f"  • Use prototypes: {self.parameter_space.use_prototypes_options}")
         print(f"  • Model types: {self.parameter_space.model_types}")
+        print(f"  • Aggregation strategies ({len(self.parameter_space.agregation_strategy)}): {self.parameter_space.agregation_strategy}")
         
         print("\nENSEMBLE PARAMETERS:")
         print(f"  • Ensemble strategies ({len(self.parameter_space.ensemble_strategy)}): {self.parameter_space.ensemble_strategy}")
@@ -121,10 +119,10 @@ class ScOPEOptimizer(ABC):
                        total_metric_combos * 
                        len(self.parameter_space.compression_levels) * 
                        len(self.parameter_space.min_size_thresholds) *  
-                       len(self.parameter_space.string_separators) * 
+                       len(self.parameter_space.concat_value) * 
                        len(self.parameter_space.use_best_sigma_options) *
                        len(self.parameter_space.use_symmetric_matrix_options) *
-                       len(self.parameter_space.use_prototypes_options)
+                       len(self.parameter_space.agregation_strategy)
                        )
         
         total_ot = len(self.parameter_space.ot_matching_metrics)
@@ -153,16 +151,23 @@ class ScOPEOptimizer(ABC):
             'compression_level': params['compression_level'],
             'min_size_threshold': params['min_size_threshold'],
             'use_best_sigma': params['use_best_sigma'],
-            'concat_value': params['string_separator'],
+            'concat_value': params['concat_value'],  # Updated from string_separator
             'model_type': params['model_type'],
             'use_symmetric_matrix': params['use_symmetric_matrix'],
-            'use_prototypes': params['use_prototypes'],
         }
+        
+        # Add aggregation method - now always available as basic parameter
+        # Note: ScOPE model expects 'aggregation_method', not 'agregation_strategy'
+        aggregation_strategy = params.get('agregation_strategy')
+        if aggregation_strategy is not None:
+            base_params['aggregation_method'] = aggregation_strategy
         
         # Add ensemble strategy if it's an ensemble (multiple compressors or metrics)
         is_ensemble = len(compressor_names) > 1 or len(compression_metric_names) > 1
         if is_ensemble:
-            base_params['ensemble_strategy'] = params.get('ensemble_strategy', 'max')
+            ensemble_strategy = params.get('ensemble_strategy')
+            if ensemble_strategy is not None:
+                base_params['ensemble_strategy'] = ensemble_strategy
         
         # Model-specific parameters - only for the correct type
         if params['model_type'] == "ot":
@@ -178,9 +183,9 @@ class ScOPEOptimizer(ABC):
     def suggest_categorical_params(self, trial) -> Dict[str, Any]:
         """Suggest categorical parameters."""
         return {
-            'string_separator': trial.suggest_categorical(
-                'string_separator', 
-                self.parameter_space.string_separators
+            'concat_value': trial.suggest_categorical(  # Updated from string_separator
+                'concat_value', 
+                self.parameter_space.concat_value
             ),
             'model_type': trial.suggest_categorical(
                 'model_type',
@@ -198,10 +203,6 @@ class ScOPEOptimizer(ABC):
             'use_symmetric_matrix': trial.suggest_categorical(
                 'use_symmetric_matrix', 
                 self.parameter_space.use_symmetric_matrix_options
-            ),
-            'use_prototypes': trial.suggest_categorical(
-                'use_prototypes',
-                self.parameter_space.use_prototypes_options
             )
         }
     
@@ -229,6 +230,15 @@ class ScOPEOptimizer(ABC):
         return {
             'compressor_names': compressor_string,
             'compression_metric_names': metric_string
+        }
+    
+    def suggest_basic_strategy_params(self, trial) -> Dict[str, Any]:
+        """Suggest basic strategy parameters (now includes aggregation)."""
+        return {
+            'agregation_strategy': trial.suggest_categorical(
+                'agregation_strategy',
+                self.parameter_space.agregation_strategy
+            )
         }
     
     def suggest_ensemble_params(self, trial, compressor_names: str, compression_metric_names: str) -> Dict[str, Any]:
@@ -283,6 +293,9 @@ class ScOPEOptimizer(ABC):
         
         # Compressor and metric combinations
         params.update(self.suggest_compressor_and_metric_params(trial))
+        
+        # Basic strategy parameters (aggregation is now basic)
+        params.update(self.suggest_basic_strategy_params(trial))
         
         # Ensemble parameters (only if it's an ensemble)
         params.update(self.suggest_ensemble_params(
@@ -532,7 +545,7 @@ class ScOPEOptimizer(ABC):
         
         print("Best configuration:")
         for param, value in self.best_params.items():
-            if param == 'string_separator':
+            if param == 'concat_value':  # Updated from string_separator
                 value = repr(value)
             print(f"  {param}: {value}")
 

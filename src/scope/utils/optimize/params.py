@@ -22,25 +22,31 @@ class ParameterSpace:
 
     compression_metric_names_combinations: List[List[str]] = field(
         default_factory=lambda: all_subsets([m.value for m in MetricType])
-    )    
-    string_separators: List[str] = field(
-        # default_factory=lambda: [' ', '\t', '\n', '|', ',']
-        default_factory=lambda: [' ', '\t', '\n']
     )
+    
+    concat_value: List[str] = field(
+        default_factory=lambda: [' ', '']
+    )
+    
     model_types: List[str] = field(
         default_factory=lambda: ["ot", "pd"]
     )
     
     ensemble_strategy: List[str] = field(
-        default_factory= lambda: ['max', 'median', 'hard', 'borda', 'soft']
+        default_factory= lambda: ['max', 'median', 'hard', 'borda', 'soft', None]
+    )
+    
+    agregation_strategy: List[str] = field(
+        default_factory= lambda: ["mean", "median", "min", "max", "sum", None]
     )
 
     # Enteros
     compression_levels: List[int] = field(
-        default_factory=lambda: [3, 9]
+        default_factory=lambda: [9]
     )
     min_size_thresholds: List[int] = field(
-        default_factory=lambda: [0, 20, 50]
+        # default_factory=lambda: [0, 20, 50]
+        default_factory=lambda: [0]
     )
 
     # Booleanos
@@ -50,14 +56,12 @@ class ParameterSpace:
     use_symmetric_matrix_options: List[bool] = field(
         default_factory=lambda: [True, False]
     )
-    use_prototypes_options: List[bool] = field(
-        default_factory=lambda: [True, False]
-    )
 
     # Específicos por tipo de modelo
     ot_matching_metrics: List[str] = field(
-        default_factory=lambda: ["matching", "jaccard", "dice", "overlap", None]
+        default_factory=lambda: ["jaccard", "dice", "overlap", None]
     )
+    
     pd_distance_metrics: List[str] = field(
         default_factory=lambda: ["cosine", "minkowski", "euclidean"]
     )

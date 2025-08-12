@@ -115,7 +115,7 @@ class Bz2(_BaseCompressor):
         )
 
     def compress(self, sequence: bytes) -> bytes:
-        return bz2.compress(sequence)
+        return bz2.compress(sequence, compresslevel=self._compression_level)
 
 
 class Gzip(_BaseCompressor):
@@ -127,7 +127,7 @@ class Gzip(_BaseCompressor):
         )
 
     def compress(self, sequence: bytes) -> bytes:
-        return gzip.compress(sequence)
+        return gzip.compress(sequence, compresslevel=self._compression_level)
 
         
         
@@ -140,7 +140,7 @@ class Zlib(_BaseCompressor):
         )
 
     def compress(self, sequence: bytes) -> bytes:
-        return zlib.compress(sequence)
+        return zlib.compress(sequence, level=self._compression_level)
     
     
 class ZStandard(_BaseCompressor):
@@ -152,7 +152,7 @@ class ZStandard(_BaseCompressor):
         )
     
     def compress(self, sequence: bytes) -> bytes:
-        compressor = ZstdCompressor()
+        compressor = ZstdCompressor(level=self._compression_level)
         return compressor.compress(sequence)
 
 
@@ -189,16 +189,3 @@ def get_compressor(
         min_size_threshold=min_size_threshold
     )
     
-
-if __name__ == '__main__':
-    compressor = get_compressor("gzip", compression_level=6, min_size_threshold=0)
-    original, compressed, compressed_size = compressor("some string to compress")
-    print(compressor)
-    print(compressed)
-    print(compressed_size)
-    
-    compressor = get_compressor("gzip", compression_level=6, min_size_threshold=100)
-    original, compressed, compressed_size1 = compressor("some string to compress")
-    print(compressor)
-    print(compressed)
-    print(compressed_size1)

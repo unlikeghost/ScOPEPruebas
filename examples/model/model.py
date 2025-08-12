@@ -1,6 +1,5 @@
 from scope import ScOPE
 
-
 sample_uk = ["holi"]
 
 kw_samples = {
@@ -18,12 +17,11 @@ kw_samples = {
 model = ScOPE(
     compressor_names=["gzip", "bz2"],
     compression_metric_names=["ncd", "clm"],
-    use_prototypes=False,
     use_best_sigma=True,
     model_type='ot',
-    get_probas=True,
     min_size_threshold=100,
-    matching_metric="jaccard"
+    matching_metric="jaccard",
+    aggregation_method='median'
 )
 
 

@@ -16,7 +16,7 @@ class PredictorRegistry:
         cls._defaults[name] = defaults or {}
     
     @classmethod
-    def create(cls, name: str, epsilon: float = 1e-12, use_prototypes: bool = False, **kwargs) -> _BasePredictor:
+    def create(cls, name: str, epsilon: float = 1e-12, aggregation_method: str = None, **kwargs) -> _BasePredictor:
         if name not in cls._predictors:
             available = list(cls._predictors.keys())
             raise ValueError(f"Model '{name}' not found. Available: {available}")
@@ -24,7 +24,7 @@ class PredictorRegistry:
         config = cls._defaults[name].copy()
         
         config['epsilon'] = epsilon
-        config['use_prototypes'] = use_prototypes
+        config['aggregation_method'] = aggregation_method
         
         config.update(kwargs)
         return cls._predictors[name](**config)
