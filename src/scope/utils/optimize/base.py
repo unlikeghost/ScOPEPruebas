@@ -8,6 +8,8 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any, Union
 from abc import ABC, abstractmethod
 from sklearn.model_selection import StratifiedKFold
+from collections import OrderedDict
+
 
 from scope.model import ScOPE
 from scope.utils.report_generation import make_report
@@ -356,14 +358,23 @@ class ScOPEOptimizer(ABC):
                 for sample, kw_sample in zip(X_val, kw_val):
                     try:
                         predictions = model.__forward__(sample, kw_sample)
+                        
                         probs = predictions.get('probas', {})
+                        
+                        probs = OrderedDict(sorted(probs.items()))
+                        
+                        pred_key = max(probs, key=probs.get) 
+                       
+                        try:
+                            predicted_class = int(pred_key)
+                        
+                        except Exception:
+                            raise ValueError
+                        
 
-                        class_names = sorted(probs.keys())
-                        proba_values = [probs[cls] for cls in class_names]
+                        proba_values = list(probs.values())
                         
-                        predicted_class_idx = np.argmax(proba_values)
-                        
-                        y_pred.append(predicted_class_idx)
+                        y_pred.append(predicted_class)
                         y_pred_proba.append(proba_values)
                         
                     except Exception as e:
@@ -453,7 +464,7 @@ class ScOPEOptimizer(ABC):
             return combined_score
             
         elif self.target_metric_name == 'log_loss':
-            return -scores['log_loss']  # Minimize
+            return scores['log_loss']  # Minimize
         else:
             return scores[self.target_metric_name]  # Maximize
 

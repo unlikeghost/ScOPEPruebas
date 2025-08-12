@@ -12,7 +12,7 @@ from typing import Union, Tuple, Optional
 
 class CompressorType(Enum):
     BZ2 = "bz2"
-    GZIP = "gzip"
+    # GZIP = "gzip"
     ZLIB = "zlib"
     ZSTD = "zstd"
     
@@ -118,16 +118,16 @@ class Bz2(_BaseCompressor):
         return bz2.compress(sequence, compresslevel=self._compression_level)
 
 
-class Gzip(_BaseCompressor):
-    def __init__(self, compression_level: int = 9, min_size_threshold: Optional[int] = 0):
-        super().__init__(
-            compressor_name="gzip",
-            compression_level=compression_level,
-            min_size_threshold=min_size_threshold
-        )
+# class Gzip(_BaseCompressor):
+#     def __init__(self, compression_level: int = 9, min_size_threshold: Optional[int] = 0):
+#         super().__init__(
+#             compressor_name="gzip",
+#             compression_level=compression_level,
+#             min_size_threshold=min_size_threshold
+#         )
 
-    def compress(self, sequence: bytes) -> bytes:
-        return gzip.compress(sequence, compresslevel=self._compression_level)
+#     def compress(self, sequence: bytes) -> bytes:
+#         return gzip.compress(sequence, compresslevel=self._compression_level)
 
         
         
@@ -140,10 +140,10 @@ class Zlib(_BaseCompressor):
         )
 
     def compress(self, sequence: bytes) -> bytes:
-        return zlib.compress(sequence, level=self._compression_level)
+        return zlib.compress(sequence, level=self._compression_level, wbits=-15)
     
     
-class ZStandard(_BaseCompressor):
+class   ZStandard(_BaseCompressor):
     def __init__(self, compression_level: int = 9, min_size_threshold: Optional[int] = 0):
         super().__init__(
             compressor_name="zstandard",
@@ -152,13 +152,13 @@ class ZStandard(_BaseCompressor):
         )
     
     def compress(self, sequence: bytes) -> bytes:
-        compressor = ZstdCompressor(level=self._compression_level)
+        compressor = ZstdCompressor(level=self._compression_level, write_content_size=False, write_checksum=False, write_dict_id=False)
         return compressor.compress(sequence)
 
 
 COMPRESSOR_STRATEGIES = {
     CompressorType.BZ2: Bz2,
-    CompressorType.GZIP: Gzip,
+    # CompressorType.GZIP: Gzip,
     CompressorType.ZLIB: Zlib,
     CompressorType.ZSTD: ZStandard
 }

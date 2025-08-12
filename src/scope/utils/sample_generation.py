@@ -83,7 +83,7 @@ class SampleGenerator:
             sample_to_predict: np.ndarray = self.data[index]
 
             current_kw_samples: Dict[str, np.ndarray] = {
-                f'class_{cls}': np.zeros((num_samples, len(self.data)))
+                f'{cls}': np.zeros((num_samples, len(self.data)))
                 for cls in self.unique_classes
             }
 
@@ -98,7 +98,7 @@ class SampleGenerator:
                 #     if index not in sampled_indices:
                 #         break
                     
-                current_kw_samples[f'class_{cls}'] = self.data[sampled_indices]
+                current_kw_samples[f'{cls}'] = self.data[sampled_indices]
 
             yield sample_to_predict, expected_label, current_kw_samples
 

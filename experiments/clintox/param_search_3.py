@@ -3,6 +3,7 @@ import random
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 import deepchem as dc
 
@@ -17,7 +18,7 @@ random.seed(seed)
 
 STUDY_NAME: str = 'Clintox'
 TEST_SAMPLES:list = 3
-TRIALS: int = 5000
+TRIALS: int = 100
 CVFOLDS: int = 10
 
 
@@ -99,7 +100,7 @@ optimizer = ScOPEOptimizerAuto(
     free_cpu=0,
     n_trials=TRIALS,
     random_seed=seed,
-    target_metric=TARGET_METRIC,
+    target_metric='log_loss',
     study_name=f'{STUDY_NAME}_Samples_{TEST_SAMPLES}',
     output_path=ANALYSYS_RESULTS_PATH,
     cv_folds=CVFOLDS
@@ -132,34 +133,37 @@ all_y_predicted = []
 all_y_probas = []
 
 for x_test_i, y_test_i, test_kw_samples_i in test_generator.generate(num_samples=TEST_SAMPLES):
-
+    
     pred = best_model(
         x_test_i,
         list_kw_samples=test_kw_samples_i
     )
     
+    
     prediction = pred['probas']
     
-    class_names = sorted(prediction.keys())
+    sorted_dict = OrderedDict(sorted(prediction.items()))
 
-    prediction_index = np.argmax(list(prediction.values()))
     
-    proba_values = [prediction[cls] for cls in class_names]
+    pred_key = max(sorted_dict, key=sorted_dict.get) 
     
-    predicted_class = int(class_names[prediction_index].replace("class_", ""))
-        
-    all_y_true.append(
-        y_test_i
-    )
+    
+    predicted_class = int(pred_key.replace("sample_", ""))
+    
     
     all_y_predicted.append(
         predicted_class
     )
     
     all_y_probas.append(
-        proba_values
+        list(sorted_dict.values())
     )
     
+    all_y_true.append(
+        y_test_i
+    )
+    
+
 results = make_report(
     y_true=all_y_true,
     y_pred=all_y_predicted,
